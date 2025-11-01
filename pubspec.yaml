@@ -27,6 +27,8 @@ dependencies:
   json_serializable: ^6.11.1
   json_annotation: ^4.9.0
   cloud_firestore: ^5.6.12
+  geocoding: ^4.0.0
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:

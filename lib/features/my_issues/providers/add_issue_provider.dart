@@ -30,12 +30,8 @@ class AddIssueProvider extends ChangeNotifier {
         description: description,
       );
 
-      if (result == null) {
-        _errorMessage = "No response from AI.";
-      } else {
-        _verificationResult = result;
-      }
-    } catch (e) {
+      _verificationResult = result;
+        } catch (e) {
       _errorMessage = "Verification failed: $e";
     }
 
