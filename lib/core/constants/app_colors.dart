@@ -8,8 +8,8 @@ class AppColors {
   /// The accent color for the app (Sky Blue).
   static const Color accent = Color(0xFF00B8D4);
 
-  /// The background color for the app (Ash Tint background).
-  static const Color background = Color(0xFFE8EAED);
+  /// The background color for the app .
+  static const Color background = Color(0xFFEDEDED);
 
   /// The color for card elements (Pure White for cards).
   static const Color card = Color(0xFFFFFFFF);

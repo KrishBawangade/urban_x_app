@@ -21,6 +21,7 @@ class IssueCard extends StatelessWidget {
 
     return Card(
       elevation: 3,
+      color: Colors.white,
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       shadowColor: Colors.black.withAlpha(25),

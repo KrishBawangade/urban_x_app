@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:urban_x_app/shared/widgets/app_main_drawer.dart';
 import 'package:urban_x_app/shared/widgets/glass_sliver_app_bar.dart';
 import '../widgets/issue_list.dart';
@@ -35,8 +36,8 @@ class HomePage extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Navigate to Add Issue Page
+        onPressed: () async{
+          await context.pushNamed('add_issue');
         },
         icon: const Icon(Icons.add),
         label: const Text("Add Issue"),
