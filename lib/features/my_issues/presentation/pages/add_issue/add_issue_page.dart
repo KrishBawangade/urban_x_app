@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:urban_x_app/core/services/location_service.dart';
 import 'package:urban_x_app/features/my_issues/presentation/widgets/add_issue/issue_category_selector.dart';
 import 'package:urban_x_app/features/my_issues/presentation/widgets/add_issue/issue_description_field.dart';
 import 'package:urban_x_app/features/my_issues/presentation/widgets/add_issue/issue_image_picker.dart';
@@ -24,6 +25,8 @@ class _AddIssuePageState extends State<AddIssuePage> {
   String? description;
   String? imagePath;
   String? locationText;
+  double? latitude;
+  double? longitude;
   bool isLoadingLocation = false;
   bool isImageSelected = false;
 
@@ -63,20 +66,18 @@ class _AddIssuePageState extends State<AddIssuePage> {
                         setState(() {
                           imagePath = path;
                           isImageSelected = path.isNotEmpty;
-
-                          if (mockLocation == null && path.isNotEmpty) {
-                            isLoadingLocation = true;
-                            locationText = null;
-                          } else {
-                            isLoadingLocation = false;
-                            locationText = mockLocation;
-                          }
+                          isLoadingLocation = isImageSelected;
+                          locationText = null;
                         });
+
+                        if (isImageSelected) {
+                          _fetchCurrentLocation();
+                        }
                       },
                     ),
                     const SizedBox(height: 20),
 
-                    // 🧭 Show Location after image is selected
+                    // 🧭 Show Location
                     if (isImageSelected)
                       isLoadingLocation
                           ? _buildLocationLoading(context)
@@ -106,9 +107,8 @@ class _AddIssuePageState extends State<AddIssuePage> {
                     // 🚀 Submit Button
                     IssueSubmitButton(
                       onPressed: () => _handleSubmit(addIssueProvider),
-                      isLoading:
-                          addIssueProvider.isLoading ||
-                              addIssueProvider.isSubmitting,
+                      isLoading: addIssueProvider.isLoading ||
+                          addIssueProvider.isSubmitting,
                     ),
                   ],
                 ),
@@ -118,6 +118,24 @@ class _AddIssuePageState extends State<AddIssuePage> {
         ],
       ),
     );
+  }
+
+  /// 🌍 Automatically fetch current location using LocationService
+  Future<void> _fetchCurrentLocation() async {
+    try {
+      final data = await LocationService.getCurrentLocation();
+      setState(() {
+        latitude = data['latitude'];
+        longitude = data['longitude'];
+        locationText = data['address'];
+        isLoadingLocation = false;
+      });
+    } catch (e) {
+      setState(() {
+        locationText = e.toString();
+        isLoadingLocation = false;
+      });
+    }
   }
 
   Widget _buildLocationLoading(BuildContext context) {
@@ -198,8 +216,8 @@ class _AddIssuePageState extends State<AddIssuePage> {
       description: description ?? "",
       category: selectedCategory ?? verificationResult['category'] ?? "Other",
       imageFile: File(imagePath!),
-      latitude: 0, // TODO: replace with actual location
-      longitude: 0,
+      latitude: latitude ?? 0.0,
+      longitude: longitude ?? 0.0,
     );
 
     if (!mounted) return;
