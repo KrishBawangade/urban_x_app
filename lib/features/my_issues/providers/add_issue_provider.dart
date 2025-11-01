@@ -5,8 +5,8 @@ import 'package:urban_x_app/features/my_issues/services/gemini_service.dart';
 class AddIssueProvider extends ChangeNotifier {
   final GeminiApiService _geminiService = GeminiApiService();
 
-  bool _isLoading = false;
-  bool _isSubmitting = false;
+  bool _isLoading = false; // for AI verification
+  bool _isSubmitting = false; // for Firestore submission
   Map<String, dynamic>? _verificationResult;
   String? _errorMessage;
   String? _successMessage;
@@ -18,7 +18,7 @@ class AddIssueProvider extends ChangeNotifier {
   String? get successMessage => _successMessage;
 
   /// ✅ Step 1: Verify image & description using Gemini AI
-  Future<void> verifyIssue(File imageFile, String description) async {
+  Future<Map<String, dynamic>?> verifyIssue(File imageFile, String description) async {
     _isLoading = true;
     _errorMessage = null;
     _verificationResult = null;
@@ -29,16 +29,22 @@ class AddIssueProvider extends ChangeNotifier {
         imageFile: imageFile,
         description: description,
       );
-      _verificationResult = result;
+
+      if (result == null) {
+        _errorMessage = "No response from AI.";
+      } else {
+        _verificationResult = result;
+      }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = "Verification failed: $e";
     }
 
     _isLoading = false;
     notifyListeners();
+    return _verificationResult;
   }
 
-  /// ✅ Step 2: Add verified issue to Firestore / backend
+  /// ✅ Step 2: Submit verified issue to Firestore / backend
   Future<void> submitIssue({
     required String title,
     required String description,
@@ -53,12 +59,12 @@ class AddIssueProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // TODO: Replace this with your actual Firestore / API logic
+      // TODO: Replace with your Firestore / backend upload
       await Future.delayed(const Duration(seconds: 2));
 
-      _successMessage = "Issue successfully submitted!";
+      _successMessage = "✅ Issue successfully submitted!";
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = "Submission failed: $e";
     }
 
     _isSubmitting = false;

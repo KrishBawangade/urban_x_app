@@ -29,9 +29,8 @@ class _IssueImagePickerState extends State<IssueImagePicker> {
     'Bajaj Nagar, Nagpur, Maharashtra 440010',
   ];
 
-  // Replace this with your backend URL
-  static const String _apiBaseUrl = "https://civic-issue-image-classification.onrender.com"; // Local dev server
-  // Example for deployed: "https://urbanx-api.vercel.app"
+  static const String _apiBaseUrl =
+      "https://civic-issue-image-classification.onrender.com";
 
   Future<void> _pickImage() async {
     try {
@@ -41,32 +40,35 @@ class _IssueImagePickerState extends State<IssueImagePicker> {
 
       if (pickedFile == null) return;
 
+      // Show image immediately
       setState(() {
         _selectedImage = File(pickedFile.path);
         _isLoading = true;
       });
 
-      // Mock location simulation
-      await Future.delayed(const Duration(seconds: 2));
       final random = Random();
       final mockLocation =
           _mockLocations[random.nextInt(_mockLocations.length)];
 
-      // ---- Make API request for image classification ----
-      final predictedLabel = await _classifyImage(File(pickedFile.path));
+      String? predictedLabel;
 
-      if (mounted) {
-        setState(() => _isLoading = false);
+      try {
+        // predictedLabel = await _classifyImage(File(pickedFile.path));
+      } catch (e) {
+        debugPrint("Classification error: $e");
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
 
-      // Return image, location, and label
-      widget.onImagePicked(pickedFile.path, mockLocation, predictedLabel);
+      if (mounted) {
+        widget.onImagePicked(pickedFile.path, mockLocation, predictedLabel);
+      }
     } catch (e) {
-      debugPrint("Error picking or classifying image: $e");
+      debugPrint("Error picking image: $e");
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed: ${e.toString()}")),
+          SnackBar(content: Text("Failed to load image: $e")),
         );
       }
     }
@@ -79,15 +81,17 @@ class _IssueImagePickerState extends State<IssueImagePicker> {
       final request = http.MultipartRequest("POST", uri)
         ..files.add(await http.MultipartFile.fromPath("file", imageFile.path));
 
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 25));
+      final responseBody = await streamedResponse.stream.bytesToString();
 
-      if (response.statusCode == 200) {
+      if (streamedResponse.statusCode == 200) {
         final data = json.decode(responseBody);
-        debugPrint("predictedLabel - $data");
+        debugPrint("Classification response: $data");
         return data["predicted_label"] ?? "Unknown";
       } else {
-        debugPrint("API Error: ${response.statusCode} - ${response.reasonPhrase}");
+        debugPrint(
+            "API Error: ${streamedResponse.statusCode} - ${streamedResponse.reasonPhrase}");
         return null;
       }
     } catch (e) {
@@ -119,7 +123,7 @@ class _IssueImagePickerState extends State<IssueImagePicker> {
               Image.file(_selectedImage!, fit: BoxFit.cover),
             if (_isLoading)
               Container(
-                color: Colors.black54,
+                color: Colors.black45,
                 child: const Center(
                   child: CircularProgressIndicator(color: Colors.white),
                 ),

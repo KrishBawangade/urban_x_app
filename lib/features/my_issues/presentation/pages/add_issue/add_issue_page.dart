@@ -22,7 +22,7 @@ class _AddIssuePageState extends State<AddIssuePage> {
 
   String? selectedCategory;
   String? description;
-  String? imageUrl;
+  String? imagePath;
   String? locationText;
   bool isLoadingLocation = false;
   bool isImageSelected = false;
@@ -31,8 +31,6 @@ class _AddIssuePageState extends State<AddIssuePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    // ✅ Provider instance
     final addIssueProvider = Provider.of<AddIssueProvider>(context);
 
     return Scaffold(
@@ -63,7 +61,7 @@ class _AddIssuePageState extends State<AddIssuePage> {
                     IssueImagePicker(
                       onImagePicked: (path, mockLocation, predictedLabel) {
                         setState(() {
-                          imageUrl = path;
+                          imagePath = path;
                           isImageSelected = path.isNotEmpty;
 
                           if (mockLocation == null && path.isNotEmpty) {
@@ -99,36 +97,19 @@ class _AddIssuePageState extends State<AddIssuePage> {
 
                     // 📝 Description Field
                     IssueDescriptionField(
-                      onChanged: (val) => description = val,
+                      onChanged: (val) => setState(() {
+                        description = val;
+                      }),
                     ),
                     const SizedBox(height: 30),
 
                     // 🚀 Submit Button
                     IssueSubmitButton(
                       onPressed: () => _handleSubmit(addIssueProvider),
-                      isLoading: addIssueProvider.isLoading,
+                      isLoading:
+                          addIssueProvider.isLoading ||
+                              addIssueProvider.isSubmitting,
                     ),
-                    const SizedBox(height: 20),
-
-                    // ⚠️ Error Message
-                    if (addIssueProvider.errorMessage != null)
-                      Text(
-                        addIssueProvider.errorMessage!,
-                        style: TextStyle(
-                          color: colorScheme.error,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-
-                    // ✅ Success Result
-                    if (addIssueProvider.verificationResult != null)
-                      Text(
-                        "Verification Successful ✅\n${addIssueProvider.verificationResult}",
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -157,18 +138,16 @@ class _AddIssuePageState extends State<AddIssuePage> {
             child: CircularProgressIndicator(strokeWidth: 2.5),
           ),
           const SizedBox(width: 10),
-          Text(
-            "Fetching location...",
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text("Fetching location...", style: theme.textTheme.bodyMedium),
         ],
       ),
     );
   }
 
+  /// 🧠 Main Submit Logic
   Future<void> _handleSubmit(AddIssueProvider addIssueProvider) async {
     if (!_formKey.currentState!.validate()) return;
-    if (imageUrl == null || imageUrl!.isEmpty) {
+    if (imagePath == null || imagePath!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select an image.")),
       );
@@ -183,19 +162,114 @@ class _AddIssuePageState extends State<AddIssuePage> {
 
     _formKey.currentState!.save();
 
-    // ✅ Use provider to verify image & description
-    await addIssueProvider.verifyIssue(File(imageUrl!), description ?? "");
+    // ✅ Step 1: Show Verifying Dialog
+    _showLoadingDialog("Verifying your request...");
+
+    await addIssueProvider.verifyIssue(
+      File(imagePath!),
+      description ?? "",
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context); // Close verifying dialog
 
     if (addIssueProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Verification failed: ${addIssueProvider.errorMessage}")),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Issue verified successfully!")),
-      );
-
-      // TODO: Firestore or API submission logic after verification success
+      _showErrorDialog("Verification Failed", addIssueProvider.errorMessage!);
+      return;
     }
+
+    final verificationResult = addIssueProvider.verificationResult;
+
+    if (verificationResult == null ||
+        verificationResult['is_problem'] == false) {
+      _showErrorDialog(
+        "Not a Valid Issue",
+        verificationResult?['reason'] ??
+            "AI could not validate this as a civic issue.",
+      );
+      return;
+    }
+
+    // ✅ Step 2: Verified → Show Submitting Dialog
+    _showLoadingDialog("Submitting your issue...");
+
+    await addIssueProvider.submitIssue(
+      title: verificationResult['title'] ?? "Untitled Issue",
+      description: description ?? "",
+      category: selectedCategory ?? verificationResult['category'] ?? "Other",
+      imageFile: File(imagePath!),
+      latitude: 0, // TODO: replace with actual location
+      longitude: 0,
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context); // Close submitting dialog
+
+    if (addIssueProvider.errorMessage != null) {
+      _showErrorDialog("Submission Failed", addIssueProvider.errorMessage!);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(addIssueProvider.successMessage ?? "Issue submitted!"),
+      ),
+    );
+
+    Navigator.pop(context, true);
+  }
+
+  /// 🧱 Generic Loading Dialog
+  void _showLoadingDialog(String text) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: IntrinsicHeight(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  Text(
+                    text,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 🚨 Error Dialog
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 }
